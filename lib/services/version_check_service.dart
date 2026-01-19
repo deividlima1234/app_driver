@@ -31,6 +31,8 @@ class VersionCheckService {
       final currentVersion = packageInfo.version;
 
       // 1. Fetch remote version info
+
+      // 1. Fetch remote version info
       final response = await _dio.get(_versionUrl);
 
       // Expected JSON:
