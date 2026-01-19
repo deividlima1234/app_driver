@@ -73,8 +73,11 @@ class VersionCheckService {
     try {
       if (current == remote) return false;
 
-      List<int> c = current.split('.').take(3).map(int.parse).toList();
-      List<int> r = remote.split('.').take(3).map(int.parse).toList();
+      String cleanCurrent = current.split('+').first;
+      String cleanRemote = remote.split('+').first;
+
+      List<int> c = cleanCurrent.split('.').take(3).map(int.parse).toList();
+      List<int> r = cleanRemote.split('.').take(3).map(int.parse).toList();
 
       // Pad with zeros if needed (e.g. "1.0" -> "1.0.0")
       while (c.length < 3) {

@@ -72,7 +72,10 @@ class _UpdateScreenState extends State<UpdateScreen> {
       });
 
       // 4. Open File (Triggers Install Intent)
-      final result = await OpenFile.open(savePath);
+      final result = await OpenFile.open(
+        savePath,
+        type: "application/vnd.android.package-archive",
+      );
       if (result.type != ResultType.done) {
         throw Exception(result.message);
       }
