@@ -8,6 +8,8 @@ import 'package:app_driver/screens/field_sales_screen.dart';
 import 'package:app_driver/screens/close_route_screen.dart';
 import 'package:app_driver/widgets/app_drawer.dart';
 import 'package:app_driver/widgets/no_route_placeholder.dart';
+import 'package:app_driver/services/version_check_service.dart';
+import 'package:app_driver/screens/update_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -23,7 +25,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Cargar ruta al iniciar
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<RouteProvider>(context, listen: false).loadCurrentRoute();
+      _checkVersion(); // Check OTA updates
     });
+  }
+
+  Future<void> _checkVersion() async {
+    final service = VersionCheckService();
+    final status = await service.checkVersion();
+
+    if (status.canUpdate && mounted) {
+      if (status.remoteVersion != null && status.downloadUrl != null) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UpdateScreen(
+              version: status.remoteVersion!,
+              downloadUrl: status.downloadUrl!,
+              releaseNotes: status.releaseNotes,
+            ),
+          ),
+          (route) => false,
+        );
+      }
+    }
   }
 
   @override

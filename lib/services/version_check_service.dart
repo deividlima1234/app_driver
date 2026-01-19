@@ -22,9 +22,8 @@ class VersionCheckService {
   final Dio _dio = Dio();
 
   // URL del archivo versión en tu repositorio (Raw)
-  // Reemplaza <USUARIO> y <REPO> cuando crees el repo.
   final String _versionUrl =
-      'https://raw.githubusercontent.com/EddamCore/app_driver/main/version.json';
+      'https://raw.githubusercontent.com/deividlima1234/app_driver/main/version.json';
 
   Future<VersionStatus> checkVersion() async {
     try {
@@ -64,7 +63,6 @@ class VersionCheckService {
       return VersionStatus(canUpdate: false, localVersion: currentVersion);
     } catch (e) {
       // Fail silently or log
-      print("Error checking version: $e");
       return VersionStatus(canUpdate: false);
     }
   }
@@ -77,8 +75,12 @@ class VersionCheckService {
       List<int> r = remote.split('.').take(3).map(int.parse).toList();
 
       // Pad with zeros if needed (e.g. "1.0" -> "1.0.0")
-      while (c.length < 3) c.add(0);
-      while (r.length < 3) r.add(0);
+      while (c.length < 3) {
+        c.add(0);
+      }
+      while (r.length < 3) {
+        r.add(0);
+      }
 
       for (int i = 0; i < 3; i++) {
         if (r[i] > c[i]) return true;
