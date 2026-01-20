@@ -6,6 +6,7 @@ class User {
   final String? fullName;
   final List<String> roles;
   final bool active;
+  final String? profilePictureUrl;
   final DateTime? createdAt;
 
   User({
@@ -14,6 +15,7 @@ class User {
     this.fullName,
     required this.roles,
     this.active = true,
+    this.profilePictureUrl,
     this.createdAt,
   });
 
@@ -32,6 +34,7 @@ class User {
       fullName: json['fullName'],
       roles: rolesList,
       active: json['active'] ?? true,
+      profilePictureUrl: json['profilePictureUrl'],
       createdAt:
           json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
     );
@@ -44,6 +47,7 @@ class User {
       'fullName': fullName,
       'roles': roles,
       'active': active,
+      'profilePictureUrl': profilePictureUrl,
       'createdAt': createdAt?.toIso8601String(),
     };
   }

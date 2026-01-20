@@ -1,6 +1,6 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "forceUpdate": true,
-  "downloadUrl": "https://github.com/deividlima1234/app_driver/releases/download/v1.0.3/app-release.apk",
-  "notes": "¡Nueva versión 1.0.3!\n\n• Corrección: Perfil de usuario (ID #0) y nuevo diseño.\n• Mejora: Visualización de versión en 'Acerca de'.\n• Ajuste: Eliminado botón de logout en Mi Ruta."
+  "downloadUrl": "https://github.com/deividlima1234/app_driver/releases/download/v1.0.4/app-release.apk",
+  "notes": "¡Nueva versión 1.0.4!\n\n• Novedad: Foto de Perfil. Sube tu foto desde la galería o tómala con la cámara.\n• Visualizador: Toca tu foto para verla en pantalla completa con tu ficha profesional.\n• Ajuste: Corrección en la carga segura de imágenes."
 }

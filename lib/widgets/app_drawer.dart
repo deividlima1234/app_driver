@@ -3,12 +3,16 @@ import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:app_driver/providers/auth_provider.dart';
 import 'package:app_driver/models/auth_model.dart'; // Import User model
+import 'package:app_driver/config/constants.dart';
 import 'package:app_driver/screens/dashboard_screen.dart';
 import 'package:app_driver/screens/map_screen.dart';
 import 'package:app_driver/screens/history_screen.dart';
 import 'package:app_driver/screens/close_route_screen.dart';
 import 'package:app_driver/screens/field_sales_screen.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -233,22 +237,89 @@ class AppDrawer extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      bottom:
-                          -0, // Visual overlap handled by list padding if needed, but here simple
-                      child: CircleAvatar(
-                        radius: 54, // Outer border
-                        backgroundColor: Colors.white,
-                        child: CircleAvatar(
-                          radius: 50,
-                          backgroundColor: const Color(0xFFE3F2FD),
-                          child: Text(
-                            (user.fullName ?? user.username)[0].toUpperCase(),
-                            style: const TextStyle(
-                                fontSize: 40,
-                                color: Color(0xFF1565C0),
-                                fontWeight: FontWeight.bold),
+                      bottom: -0,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showImageOptions(context, auth, user),
+                            child: CircleAvatar(
+                              radius: 54, // Outer border
+                              backgroundColor: Colors.white,
+                              child: FutureBuilder<String?>(
+                                  future: auth.getToken(),
+                                  builder: (context, snapshot) {
+                                    // Construct URL
+                                    String? imageUrl = user.profilePictureUrl;
+                                    if (imageUrl != null &&
+                                        !imageUrl.startsWith('http')) {
+                                      // Remove leading slash if present to avoid double slash,
+                                      // assuming baseUrl ends with /v1 (no trailing slash usually, but let's be safe)
+                                      // Actually AppConstants.baseUrl is .../api/v1
+                                      // relative url from backend is /api/v1/users/...
+                                      // wait, if backend returns /api/v1/users/..., and baseUrl is .../api/v1
+                                      // we might duplicate /api/v1 if we just join them.
+                                      // Let's assume baseUrl is the HOST part mostly if the path is full.
+                                      // But AppConstants.baseUrl includes /api/v1.
+                                      // If the returned URL is also /api/v1/..., we should strip it or just use the host.
+                                      // Simpler: Just resolve against the base.
+                                      // But base is 'https://ccalarce-backend.onrender.com/api/v1'.
+                                      // user.profilePictureUrl is '/api/v1/users/15/picture'.
+                                      // If we combine, we get .../api/v1/api/v1... WRONG.
+                                      // We need the root host.
+                                      // Hacky fix: Replace /api/v1 in baseUrl with empty to get host, or just parse Uri.
+
+                                      final uri =
+                                          Uri.parse(AppConstants.baseUrl);
+                                      final host =
+                                          "${uri.scheme}://${uri.host}"; // e.g. https://ccalarce-backend.onrender.com
+                                      imageUrl = "$host$imageUrl";
+                                    }
+
+                                    return CircleAvatar(
+                                      radius: 50,
+                                      backgroundColor: const Color(0xFFE3F2FD),
+                                      backgroundImage:
+                                          (imageUrl != null && snapshot.hasData)
+                                              ? CachedNetworkImageProvider(
+                                                  imageUrl,
+                                                  headers: {
+                                                    'Authorization':
+                                                        'Bearer ${snapshot.data}'
+                                                  },
+                                                )
+                                              : null,
+                                      child: user.profilePictureUrl == null
+                                          ? Text(
+                                              (user.fullName ??
+                                                      user.username)[0]
+                                                  .toUpperCase(),
+                                              style: const TextStyle(
+                                                  fontSize: 40,
+                                                  color: Color(0xFF1565C0),
+                                                  fontWeight: FontWeight.bold),
+                                            )
+                                          : null,
+                                    );
+                                  }),
+                            ),
                           ),
-                        ),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2))
+                              ],
+                            ),
+                            child: const Icon(Icons.camera_alt,
+                                size: 20, color: Color(0xFF1565C0)),
+                          )
+                        ],
                       ),
                     ),
                   ],
@@ -432,6 +503,176 @@ class AppDrawer extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showImageOptions(BuildContext context, AuthProvider auth, User user) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Wrap(
+        children: [
+          if (user.profilePictureUrl != null)
+            ListTile(
+              leading: const Icon(Icons.visibility, color: Colors.blue),
+              title: const Text('Ver foto de perfil'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _viewProfilePicture(context, auth, user);
+              },
+            ),
+          ListTile(
+            leading: const Icon(Icons.camera_alt),
+            title: const Text('Tomar foto'),
+            onTap: () async {
+              Navigator.pop(ctx);
+              _handleImageSelection(context, auth, ImageSource.camera);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library),
+            title: const Text(
+                'Multimedia'), // 'Galería' renamed per request or style
+            onTap: () async {
+              Navigator.pop(ctx);
+              _handleImageSelection(context, auth, ImageSource.gallery);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleImageSelection(
+      BuildContext context, AuthProvider auth, ImageSource source) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? photo = await picker.pickImage(source: source);
+    if (photo != null && context.mounted) {
+      _uploadImage(context, auth, File(photo.path));
+    }
+  }
+
+  void _viewProfilePicture(BuildContext context, AuthProvider auth, User user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => FutureBuilder<String?>(
+          future: auth.getToken(),
+          builder: (context, snapshot) {
+            String? imageUrl = user.profilePictureUrl;
+            if (imageUrl != null && !imageUrl.startsWith('http')) {
+              final uri = Uri.parse(AppConstants.baseUrl);
+              final host = "${uri.scheme}://${uri.host}";
+              imageUrl = "$host$imageUrl";
+            }
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(10),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Imagen con Zoom
+                  InteractiveViewer(
+                    panEnabled: true,
+                    minScale: 0.5,
+                    maxScale: 4,
+                    child: Container(
+                      width: double.infinity,
+                      height: 400, // Fixed height or adjust
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(20),
+                        image: (imageUrl != null && snapshot.hasData)
+                            ? DecorationImage(
+                                image: CachedNetworkImageProvider(
+                                  imageUrl,
+                                  headers: {
+                                    'Authorization': 'Bearer ${snapshot.data}'
+                                  },
+                                ),
+                                fit: BoxFit.contain,
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+
+                  // Footer Profesional
+                  Positioned(
+                    bottom: 20,
+                    left: 20,
+                    right: 20,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 24),
+                      decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5))
+                          ]),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            user.fullName ?? user.username,
+                            style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 2),
+                            decoration: BoxDecoration(
+                                color: const Color(0xFF0D47A1),
+                                borderRadius: BorderRadius.circular(10)),
+                            child: Text(
+                              user.roles.isNotEmpty
+                                  ? user.roles.first
+                                  : 'Conductor',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Close Button
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 30),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  )
+                ],
+              ),
+            );
+          }),
+    );
+  }
+
+  Future<void> _uploadImage(
+      BuildContext context, AuthProvider auth, File file) async {
+    try {
+      await auth.uploadProfilePicture(file);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al subir imagen: $e')),
+        );
+      }
+    }
   }
 
   void _showAboutModal(BuildContext context) {

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:app_driver/models/auth_model.dart';
@@ -101,6 +102,25 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _isLoadingProfile = false;
       notifyListeners();
+    }
+  }
+
+  Future<String?> getToken() async {
+    return await _storageManager.getToken();
+  }
+
+  Future<void> uploadProfilePicture(File file) async {
+    _isLoadingProfile = true;
+    notifyListeners();
+    try {
+      await _authService.uploadProfilePicture(file);
+      // Refresh user to get the new URL
+      await refreshUser();
+      // refreshUser already handles notifyListeners() at the end
+    } catch (e) {
+      _isLoadingProfile = false;
+      notifyListeners();
+      rethrow;
     }
   }
 }
