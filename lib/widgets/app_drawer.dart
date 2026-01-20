@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:app_driver/providers/auth_provider.dart';
 import 'package:app_driver/models/auth_model.dart'; // Import User model
 import 'package:app_driver/screens/dashboard_screen.dart';
@@ -173,146 +174,243 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  void _showProfileModal(BuildContext context, User user) {
+  void _showProfileModal(BuildContext context, User userBase) {
+    // Trigger refresh immediately
+    // Note: We use the provider without listening (listen: false) to call the method,
+    // but the UI inside Consumer will rebuild when it notifies.
+    context.read<AuthProvider>().refreshUser();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            // Handle for drag
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+      builder: (context) => Consumer<AuthProvider>(
+        builder: (context, auth, _) {
+          // Use fresh user if available, otherwise fallback to passed user
+          final user = auth.user ?? userBase;
+          final isLoading = auth.isLoadingProfile;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 20,
+                  offset: Offset(0, -5),
                 ),
-              ),
+              ],
             ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 46,
-                    backgroundColor: const Color(0xFF1E88E5),
-                    child: Text(
-                      (user.fullName ?? user.username)[0].toUpperCase(),
-                      style: const TextStyle(
-                          fontSize: 36,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold),
+            child: Column(
+              children: [
+                // 1. Elegant Header with Gradient
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      height: 140,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                        ),
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
                     ),
+                    Positioned(
+                      top: 10,
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom:
+                          -0, // Visual overlap handled by list padding if needed, but here simple
+                      child: CircleAvatar(
+                        radius: 54, // Outer border
+                        backgroundColor: Colors.white,
+                        child: CircleAvatar(
+                          radius: 50,
+                          backgroundColor: const Color(0xFFE3F2FD),
+                          child: Text(
+                            (user.fullName ?? user.username)[0].toUpperCase(),
+                            style: const TextStyle(
+                                fontSize: 40,
+                                color: Color(0xFF1565C0),
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // 2. Main Info
+                if (isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    user.fullName ?? user.username,
+
+                Text(
+                  user.fullName ?? user.username,
+                  style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFC8E6C9)),
+                  ),
+                  child: Text(
+                    user.roles.isNotEmpty ? user.roles.first : 'Conductor',
                     style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+                        color: Color(0xFF2E7D32),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12),
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.blue[100]!),
-                    ),
-                    child: Text(
-                      user.roles.isNotEmpty ? user.roles.first : 'Conductor',
-                      style: TextStyle(
-                          color: Colors.blue[800],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Divider(),
-
-            // Details List
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const Text("INFORMACIÓN DE CUENTA",
-                      style: TextStyle(
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          letterSpacing: 1.2)),
-                  const SizedBox(height: 16),
-                  _buildDetailTile(
-                      Icons.perm_identity, "ID de Usuario", "#${user.id}"),
-                  _buildDetailTile(
-                      Icons.person_outline, "Nombre de Usuario", user.username),
-                  _buildDetailTile(Icons.badge_outlined, "Nombre Completo",
-                      user.fullName ?? "No registrado"),
-                  _buildDetailTile(Icons.verified_user_outlined, "Estado",
-                      user.active ? "Activo" : "Inactivo",
-                      color: user.active ? Colors.green : Colors.red),
-                  if (user.createdAt != null)
-                    _buildDetailTile(
-                        Icons.calendar_month_outlined,
-                        "Fecha de Registro",
-                        DateFormat('dd/MM/yyyy • hh:mm a')
-                            .format(user.createdAt!)),
-                ],
-              ),
-            ),
-
-            // Footer Button
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text("Cerrar"),
                 ),
-              ),
-            )
-          ],
+
+                const SizedBox(height: 24),
+
+                // 3. User Details Cards
+                Expanded(
+                  child: Container(
+                    color: Colors.grey[50],
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 24),
+                      children: [
+                        _buildSectionHeader("INFORMACIÓN PERSONAL"),
+                        _buildInfoCard([
+                          _buildInfoRow(Icons.person_outline,
+                              "Nombre de Usuario", user.username),
+                          const Divider(height: 1, indent: 50),
+                          _buildInfoRow(Icons.badge_outlined, "ID de Empleado",
+                              "#${user.id}"),
+                        ]),
+                        const SizedBox(height: 20),
+                        _buildSectionHeader("ESTADO DE CUENTA"),
+                        _buildInfoCard([
+                          _buildInfoRow(
+                            Icons.verified_user_outlined,
+                            "Estado",
+                            user.active ? "Activo" : "Inactivo",
+                            valueColor:
+                                user.active ? Colors.green[700] : Colors.red,
+                          ),
+                          if (user.createdAt != null) ...[
+                            const Divider(height: 1, indent: 50),
+                            _buildInfoRow(
+                                Icons.calendar_today_outlined,
+                                "Miembro desde",
+                                DateFormat('MMM yyyy').format(user.createdAt!)),
+                          ]
+                        ]),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 4. Close Button area
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D47A1),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text("Cerrar",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                )
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Color(0xFF757575),
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+          letterSpacing: 1.2,
         ),
       ),
     );
   }
 
-  Widget _buildDetailTile(IconData icon, String label, String value,
-      {Color? color}) {
+  Widget _buildInfoCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value,
+      {Color? valueColor}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 22, color: Colors.grey[700]),
+            child: Icon(icon, size: 20, color: const Color(0xFF616161)),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -320,70 +418,76 @@ class AppDrawer extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                const SizedBox(height: 4),
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF757575))),
+                const SizedBox(height: 2),
                 Text(value,
                     style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: color ?? Colors.black87)),
+                        color: valueColor ?? const Color(0xFF212121))),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
   void _showAboutModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+    Future.microtask(() async {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (!context.mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const Icon(Icons.local_shipping_rounded,
-                size: 48, color: Color(0xFF0D47A1)),
-            const SizedBox(height: 16),
-            const Text(
-              'SIGLO-F Driver',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const Text(
-              'Versión 1.0.0',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 24),
-            _buildCreditRow("Desarrollado por", "Eddam Eloy"),
-            const SizedBox(height: 12),
-            _buildCreditRow("Corporación", "EddamCore © 2026"),
-            const SizedBox(height: 40),
-            const Text(
-              "Todos los derechos reservados",
-              style: TextStyle(fontSize: 10, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-          ],
+              const Icon(Icons.local_shipping_rounded,
+                  size: 48, color: Color(0xFF0D47A1)),
+              const SizedBox(height: 16),
+              const Text(
+                'SIGLO-F Driver',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Versión ${packageInfo.version}',
+                style: const TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 24),
+              _buildCreditRow("Desarrollado por", "Eddam Eloy"),
+              const SizedBox(height: 12),
+              _buildCreditRow("Corporación", "EddamCore © 2026"),
+              const SizedBox(height: 40),
+              const Text(
+                "Todos los derechos reservados",
+                style: TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildCreditRow(String label, String value) {

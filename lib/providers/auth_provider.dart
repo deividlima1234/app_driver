@@ -13,10 +13,12 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.notAuthenticated;
   User? _user;
   String? _errorMessage;
+  bool _isLoadingProfile = false;
 
   AuthStatus get status => _status;
   User? get user => _user;
   String? get errorMessage => _errorMessage;
+  bool get isLoadingProfile => _isLoadingProfile;
 
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
@@ -81,5 +83,24 @@ class AuthProvider extends ChangeNotifier {
       _status = AuthStatus.notAuthenticated;
     }
     notifyListeners();
+  }
+
+  Future<void> refreshUser() async {
+    _isLoadingProfile = true;
+    notifyListeners();
+
+    try {
+      final freshUser = await _authService.getMe();
+      if (freshUser.id != 0) {
+        _user = freshUser;
+        // Update storage with fresh data
+        await _storageManager.saveUser(jsonEncode(freshUser.toJson()));
+      }
+    } catch (e) {
+      debugPrint("Error refreshing user profile: $e");
+    } finally {
+      _isLoadingProfile = false;
+      notifyListeners();
+    }
   }
 }

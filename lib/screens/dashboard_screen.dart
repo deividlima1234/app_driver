@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:app_driver/providers/auth_provider.dart';
+
 import 'package:app_driver/providers/route_provider.dart';
 import 'package:app_driver/widgets/product_card.dart';
 import 'package:app_driver/screens/field_sales_screen.dart';
@@ -52,7 +52,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
     final routeProvider = Provider.of<RouteProvider>(context);
 
     // Lógica de redirección automática si hay observaciones
@@ -68,10 +67,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => routeProvider.loadCurrentRoute(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => authProvider.logout(),
           ),
         ],
       ),
